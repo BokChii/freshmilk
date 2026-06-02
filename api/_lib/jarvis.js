@@ -398,6 +398,19 @@ export async function readDailyScrumsFromGitHub(config = getConfig()) {
     .map((line) => JSON.parse(line));
 }
 
+export async function readGitHubEventsFromGitHub(config = getConfig()) {
+  const file = await getGitHubFile("data/github-events.jsonl", config);
+
+  if (!file?.content) {
+    return [];
+  }
+
+  return file.content
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
 export async function saveDailyScrumToGitHub(payload, config = getConfig()) {
   const record = {
     type: "daily_scrum",
@@ -499,14 +512,39 @@ export function formatGitHubEvent(eventName, payload) {
 
   if (eventName === "pull_request") {
     const pr = payload.pull_request || {};
-    return [
+    const action = payload.action || "unknown";
+    const repo = payload.repository?.full_name || payload.repository?.name || "unknown-repo";
+    const stateLabel = pr.merged ? "merged" : action;
+    const base = pr.base?.ref || "unknown-base";
+    const head = pr.head?.ref || "unknown-head";
+    const lines = [
       "*GitHub PR 요약*",
-      `• Action: ${payload.action || "unknown"}`,
-      `• Repo: ${payload.repository?.full_name || payload.repository?.name || "unknown-repo"}`,
+      `• Status: ${stateLabel}`,
+      `• Repo: ${repo}`,
       `• PR: #${pr.number || payload.number || "?"} ${pr.title || "Untitled PR"}`,
       `• Author: ${pr.user?.login || "unknown"}`,
-      pr.html_url ? `• URL: ${pr.html_url}` : null
-    ].filter(Boolean).join("\n");
+      `• Branch: ${head} -> ${base}`,
+      `• Changed files: ${pr.changed_files ?? "unknown"}`,
+      `• Additions/Deletions: +${pr.additions ?? 0} / -${pr.deletions ?? 0}`
+    ];
+
+    if (pr.html_url) {
+      lines.push(`• URL: ${pr.html_url}`);
+    }
+
+    if (pr.body) {
+      const bodyPreview = pr.body.replace(/\s+/g, " ").trim().slice(0, 180);
+
+      if (bodyPreview) {
+        lines.push(`• Description: ${bodyPreview}`);
+      }
+    }
+
+    if (pr.merged) {
+      lines.push(`• Merged by: ${pr.merged_by?.login || "unknown"}`);
+    }
+
+    return lines.join("\n");
   }
 
   return [
@@ -516,17 +554,97 @@ export function formatGitHubEvent(eventName, payload) {
   ].join("\n");
 }
 
+export function formatGitHubEventsForDaily(events) {
+  const todayEvents = events.filter((event) => isSameKstDate(event.created_at));
+
+  if (!todayEvents.length) {
+    return "";
+  }
+
+  const lines = ["*오늘의 GitHub 작업*"];
+
+  for (const event of todayEvents.slice(-10)) {
+    if (event.event === "push") {
+      lines.push(`• push: ${event.repo} (${event.commit_count ?? "?"} commits)`);
+      continue;
+    }
+
+    if (event.event === "pull_request") {
+      const prLabel = event.pr_number ? `#${event.pr_number}` : "PR";
+      const status = event.pr_merged ? "merged" : event.action || "updated";
+      lines.push(`• PR ${status}: ${event.repo} ${prLabel} ${event.pr_title || ""}`.trim());
+      continue;
+    }
+
+    lines.push(`• ${event.event}: ${event.repo}`);
+  }
+
+  return lines.join("\n");
+}
+
+function getGitHubEventStorageSlug(eventName, payload) {
+  const repo = payload.repository?.full_name || payload.repository?.name || "unknown-repo";
+
+  if (eventName === "pull_request") {
+    const pr = payload.pull_request || {};
+    const action = pr.merged ? "merged" : payload.action || "updated";
+    return slugifyTitle(`${eventName}-${action}-${repo}-${pr.number || payload.number || "unknown"}`);
+  }
+
+  if (eventName === "push") {
+    const headSha = payload.head_commit?.id || payload.after || new Date().toISOString();
+    return slugifyTitle(`${eventName}-${repo}-${String(headSha).slice(0, 8)}`);
+  }
+
+  return slugifyTitle(`${eventName}-${repo}-${Date.now()}`);
+}
+
+function getGitHubEventMetadata(eventName, payload) {
+  if (eventName === "push") {
+    return {
+      action: "push",
+      branch: String(payload.ref || "").replace("refs/heads/", "") || null,
+      commit_count: payload.commits?.length || 0,
+      head_commit_message: payload.head_commit?.message || null,
+      head_commit_author: payload.head_commit?.author?.name || null
+    };
+  }
+
+  if (eventName === "pull_request") {
+    const pr = payload.pull_request || {};
+    return [
+      ["action", payload.action || null],
+      ["pr_number", pr.number || payload.number || null],
+      ["pr_title", pr.title || null],
+      ["pr_author", pr.user?.login || null],
+      ["pr_merged", Boolean(pr.merged)],
+      ["pr_base", pr.base?.ref || null],
+      ["pr_head", pr.head?.ref || null],
+      ["changed_files", pr.changed_files ?? null],
+      ["additions", pr.additions ?? null],
+      ["deletions", pr.deletions ?? null],
+      ["url", pr.html_url || null]
+    ].reduce((metadata, [key, value]) => {
+      metadata[key] = value;
+      return metadata;
+    }, {});
+  }
+
+  return {};
+}
+
 export async function saveGitHubEventToGitHub(eventName, payload, summaryText, config = getConfig()) {
   const repo = payload.repository?.full_name || payload.repository?.name || "unknown-repo";
   const date = todayKstDateString();
-  const markdownPath = `records/github/${date}-${slugifyTitle(`${eventName}-${repo}`)}.md`;
+  const markdownPath = `records/github/${date}-${getGitHubEventStorageSlug(eventName, payload)}.md`;
   const record = {
     type: "github_event",
     created_at: new Date().toISOString(),
     event: eventName,
     repo,
     summary: summaryText,
-    markdown_path: markdownPath
+    markdown_path: markdownPath,
+    ...getGitHubEventMetadata(eventName, payload)
   };
   const markdown = [
     `# GitHub ${eventName} - ${repo}`,

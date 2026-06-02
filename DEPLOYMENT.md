@@ -84,6 +84,8 @@ Pushes
 Pull requests
 ```
 
+`Pull requests`를 켜야 PR opened, updated, closed, merged 요약이 Slack에 올라옵니다.
+
 ## Storage
 
 Vercel does not persist local files. Jarvis stores records by committing Markdown/JSONL files into the GitHub repository through the GitHub Contents API.

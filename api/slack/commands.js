@@ -3,12 +3,14 @@ import {
   answerAskWithAi,
   formatBasicDailySummary,
   formatDailyMemberUpdates,
+  formatGitHubEventsForDaily,
   formatDailyResponse,
   getConfig,
   isSameKstDate,
   parseFormBody,
   postSlackResponse,
   readDailyScrumsFromGitHub,
+  readGitHubEventsFromGitHub,
   readGitHubKnowledge,
   readRawBody,
   saveDailyScrumToGitHub,
@@ -100,10 +102,12 @@ async function handleDailySummary(payload, config) {
     if (!todayRecords.length) {
       text = "오늘 기록된 데일리 스크럼이 아직 없습니다.";
     } else {
+      const todayGitHubEvents = await readGitHubEventsFromGitHub(config);
+      const githubSection = formatGitHubEventsForDaily(todayGitHubEvents);
       const aiSummary = await summarizeDailyWithAi(todayRecords, config);
       text = aiSummary
-        ? [formatDailyMemberUpdates(todayRecords), "", aiSummary].join("\n").trim()
-        : formatBasicDailySummary(todayRecords);
+        ? [formatDailyMemberUpdates(todayRecords), githubSection, aiSummary].filter(Boolean).join("\n\n").trim()
+        : [formatBasicDailySummary(todayRecords), githubSection].filter(Boolean).join("\n\n").trim();
       const markdownPath = await saveDailySummaryToGitHub(todayRecords, text, config);
       text = [text, "", `저장 위치: ${markdownPath}`].join("\n");
     }

@@ -9,6 +9,7 @@ Slack 중심으로 동작하는 사내 AI agent MVP입니다.
 - `/record`: 회의/고객사/업무 메모 구조화 저장
 - `/ask`: 저장된 기록에 질문
 - GitHub webhook: push/PR 이벤트 Slack 요약
+- `/daily-summary`: 오늘의 GitHub 작업도 함께 표시
 - GitHub-backed storage: 기록을 GitHub repo의 `data/`, `records/`에 저장
 
 ## Local Run
@@ -91,6 +92,8 @@ Content type: application/json
 Secret: same value as GITHUB_WEBHOOK_SECRET
 Events: Pushes, Pull requests
 ```
+
+PR 요약을 사용하려면 GitHub webhook에서 `Pull requests` 이벤트가 켜져 있어야 합니다.
 
 ## Deployment
 
