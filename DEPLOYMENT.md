@@ -1,57 +1,51 @@
-# Deployment
+# Vercel Deployment
 
-Jarvis is a long-running Node HTTP server. Deploy it as a web service, not as a serverless function, because Slack slash commands and follow-up responses depend on the process staying alive.
+Jarvis runs on Vercel Serverless Functions.
 
-## Recommended Platform
+## Endpoints
 
-Use Koyeb first if the goal is a free deployment.
+Vercel rewrites these public paths to API functions:
 
-Koyeb provides one free Web Service and can deploy this repository from GitHub using the included Dockerfile.
-
-See [KOYEB.md](./KOYEB.md).
-
-Render, Railway, and Fly.io are also possible, but their free/trial and billing conditions can be less suitable for a Slack webhook service.
-
-Avoid Vercel serverless for this MVP because the current app performs follow-up work after the immediate Slack response.
+```text
+GET  /health
+POST /slack/commands
+POST /github/webhook
+```
 
 ## Required Environment Variables
 
+Set these in Vercel Project Settings.
+
 ```text
-PORT=3131
-STORAGE_ROOT=.
 SLACK_SIGNING_SECRET=...
 OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.2
 GITHUB_WEBHOOK_SECRET=...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+GITHUB_TOKEN=...
+GITHUB_OWNER=BokChii
+GITHUB_REPO=freshmilk
+GITHUB_BRANCH=master
 ```
 
-For a deployed service, use a persistent disk and set `STORAGE_ROOT` to that mounted path.
+## GitHub Token
 
-Examples:
+Create a fine-grained GitHub token with access to `BokChii/freshmilk`.
+
+Required repository permission:
 
 ```text
-STORAGE_ROOT=/data
+Contents: Read and write
 ```
 
-## Health Check
+Use this token as `GITHUB_TOKEN`.
+
+## Slack Slash Commands
+
+After deployment, update all Slack slash commands to:
 
 ```text
-GET /health
-```
-
-Expected response:
-
-```json
-{"ok":true,"service":"freshmilk-jarvis"}
-```
-
-## Slack URLs
-
-After deployment, update every Slack slash command Request URL:
-
-```text
-https://YOUR_DEPLOYED_DOMAIN/slack/commands
+https://YOUR_VERCEL_DOMAIN/slack/commands
 ```
 
 Commands:
@@ -63,12 +57,12 @@ Commands:
 /ask
 ```
 
-## GitHub Webhook URL
+## GitHub Webhook
 
-Update the GitHub repository webhook Payload URL:
+Update the GitHub webhook Payload URL:
 
 ```text
-https://YOUR_DEPLOYED_DOMAIN/github/webhook
+https://YOUR_VERCEL_DOMAIN/github/webhook
 ```
 
 Content type:
@@ -82,3 +76,22 @@ Secret:
 ```text
 same value as GITHUB_WEBHOOK_SECRET
 ```
+
+Events:
+
+```text
+Pushes
+Pull requests
+```
+
+## Storage
+
+Vercel does not persist local files. Jarvis stores records by committing Markdown/JSONL files into the GitHub repository through the GitHub Contents API.
+
+Jarvis-generated commits use this prefix:
+
+```text
+chore(jarvis):
+```
+
+The GitHub webhook ignores those commits to avoid recursive webhook loops.

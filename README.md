@@ -9,9 +9,11 @@ Slack 중심으로 동작하는 사내 AI agent MVP입니다.
 - `/record`: 회의/고객사/업무 메모 구조화 저장
 - `/ask`: 저장된 기록에 질문
 - GitHub webhook: push/PR 이벤트 Slack 요약
-- Markdown export: `records/` 아래에 daily, meetings, github 기록 저장
+- GitHub-backed storage: 기록을 GitHub repo의 `data/`, `records/`에 저장
 
 ## Local Run
+
+로컬 Node 서버는 개발용으로 유지합니다.
 
 ```powershell
 Copy-Item .env.example .env
@@ -24,19 +26,29 @@ Health check:
 Invoke-RestMethod -Uri "http://localhost:3131/health"
 ```
 
+## Vercel Serverless
+
+Vercel 배포 후 공개 URL은 아래처럼 사용합니다.
+
+```text
+GET  https://YOUR_VERCEL_DOMAIN/health
+POST https://YOUR_VERCEL_DOMAIN/slack/commands
+POST https://YOUR_VERCEL_DOMAIN/github/webhook
+```
+
 ## Environment
 
 ```text
-PORT=3131
-STORAGE_ROOT=.
 SLACK_SIGNING_SECRET=replace_with_slack_signing_secret
 OPENAI_API_KEY=replace_with_openai_api_key
 OPENAI_MODEL=gpt-5.2
 GITHUB_WEBHOOK_SECRET=replace_with_github_webhook_secret
 SLACK_WEBHOOK_URL=replace_with_slack_incoming_webhook_url
+GITHUB_TOKEN=replace_with_github_token
+GITHUB_OWNER=BokChii
+GITHUB_REPO=freshmilk
+GITHUB_BRANCH=master
 ```
-
-`STORAGE_ROOT` controls where `data/` and `records/` are written. For local development, keep it as `.`. For deployment with a persistent disk, set it to the mounted path such as `/data`.
 
 ## Slack Commands
 
@@ -79,8 +91,6 @@ Content type: application/json
 Secret: same value as GITHUB_WEBHOOK_SECRET
 Events: Pushes, Pull requests
 ```
-
-GitHub 이벤트를 Slack에 올리려면 `SLACK_WEBHOOK_URL`을 설정합니다.
 
 ## Deployment
 

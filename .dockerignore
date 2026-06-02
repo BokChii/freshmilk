@@ -1,6 +1,0 @@
-node_modules
-.env
-.git
-data/*.jsonl
-records/**/*.md
-*.log
