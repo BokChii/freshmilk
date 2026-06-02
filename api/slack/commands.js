@@ -1,6 +1,7 @@
 import { waitUntil } from "@vercel/functions";
 import {
   answerAskWithAi,
+  extractActionsWithAi,
   formatBasicDailySummary,
   formatDailyMemberUpdates,
   formatGitHubEventsForDaily,
@@ -15,6 +16,7 @@ import {
   readRawBody,
   saveDailyScrumToGitHub,
   saveDailySummaryToGitHub,
+  saveActionSummaryToGitHub,
   saveRecordToGitHub,
   splitRecordTitleAndBody,
   structureRecordWithAi,
@@ -82,6 +84,15 @@ export default async function handler(req, res) {
       text: "저장된 기록을 검색하고 있습니다. 완료되면 채널에 공개로 올릴게요."
     });
     waitUntil(handleAsk(payload, appConfig));
+    return;
+  }
+
+  if (payload.command === "/action") {
+    res.status(200).json({
+      response_type: "ephemeral",
+      text: "저장된 기록에서 액션 아이템을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요."
+    });
+    waitUntil(handleAction(payload, appConfig));
     return;
   }
 
@@ -209,6 +220,52 @@ async function handleAsk(payload, config) {
     await postSlackResponse(payload.response_url, {
       response_type: "ephemeral",
       text: "기록 검색 중 오류가 발생했습니다. Vercel 로그를 확인해주세요."
+    });
+  }
+}
+
+async function handleAction(payload, config) {
+  try {
+    const query = (payload.text || "").trim();
+    const contextRecords = await readGitHubKnowledge(query || "액션 할 일 막힌 것 확인 필요", 8, config);
+
+    if (!contextRecords.length) {
+      await postSlackResponse(payload.response_url, {
+        response_type: "ephemeral",
+        text: "아직 액션 아이템을 추출할 기록이 없습니다. 먼저 /daily-summary 또는 /record로 기록을 저장해주세요."
+      });
+      return;
+    }
+
+    const aiActions = await extractActionsWithAi(query, contextRecords, config);
+    const actionText = aiActions || [
+      "*액션 아이템*",
+      "",
+      "AI 액션 추출에 실패해서 관련 기록만 표시합니다.",
+      "",
+      "*참고 기록*",
+      ...contextRecords.map((record) => `• ${record.filePath}`)
+    ].join("\n");
+    const markdownPath = await saveActionSummaryToGitHub(query, actionText, contextRecords, config);
+
+    await postSlackResponse(payload.response_url, {
+      response_type: "in_channel",
+      text: [
+        query ? `*범위:* ${query}` : "*범위:* 전체 최신 기록",
+        "",
+        actionText,
+        "",
+        `저장 위치: ${markdownPath}`,
+        "",
+        "*참고 기록*",
+        ...contextRecords.map((record) => `• ${record.filePath}`)
+      ].join("\n")
+    });
+  } catch (error) {
+    console.error(error);
+    await postSlackResponse(payload.response_url, {
+      response_type: "ephemeral",
+      text: "액션 아이템 정리 중 오류가 발생했습니다. Vercel 로그를 확인해주세요."
     });
   }
 }

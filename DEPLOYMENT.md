@@ -55,6 +55,7 @@ Commands:
 /daily-summary
 /record
 /ask
+/action
 ```
 
 ## GitHub Webhook

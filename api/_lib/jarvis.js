@@ -447,6 +447,27 @@ export async function saveDailySummaryToGitHub(records, summaryText, config = ge
   return putGitHubFile(`records/daily/${date}.md`, `${markdown}\n`, "write daily summary", config);
 }
 
+export async function saveActionSummaryToGitHub(query, actionText, contextRecords, config = getConfig()) {
+  const date = todayKstDateString();
+  const suffix = query ? `-${slugifyTitle(query)}` : "";
+  const markdownPath = `records/actions/${date}${suffix}.md`;
+  const markdown = [
+    `# Action Items - ${date}`,
+    "",
+    query ? `- Query: ${query}` : "- Query: all",
+    "",
+    "## Actions",
+    "",
+    actionText,
+    "",
+    "## Sources",
+    "",
+    ...contextRecords.map((record) => `- ${record.filePath}`)
+  ].join("\n");
+
+  return putGitHubFile(markdownPath, `${markdown}\n`, "write action summary", config);
+}
+
 export async function saveRecordToGitHub(payload, structuredText, config = getConfig()) {
   const { title, body } = splitRecordTitleAndBody(payload.text || "");
   const date = todayKstDateString();
@@ -793,6 +814,49 @@ export async function answerAskWithAi(query, contextRecords, config = getConfig(
       "Answer in Korean using only the provided company records.",
       "If the records do not contain enough information, say what is missing.",
       "Use Slack mrkdwn with short bullets."
+    ].join("\n"),
+    900,
+    config
+  );
+}
+
+export async function extractActionsWithAi(query, contextRecords, config = getConfig()) {
+  const scope = query?.trim() || "전체 최신 기록";
+  const context = contextRecords
+    .map((record) => [`FILE: ${record.filePath}`, record.content.slice(0, 4000)].join("\n"))
+    .join("\n\n---\n\n");
+
+  return callOpenAi(
+    [
+      `범위: ${scope}`,
+      "",
+      "아래 회사 기록에서 실행해야 할 액션 아이템만 추출해줘.",
+      "",
+      "출력 형식:",
+      "*액션 아이템*",
+      "",
+      "*담당자별*",
+      "• 담당자: 할 일 (기한/출처가 있으면 포함)",
+      "",
+      "*막힌 것*",
+      "• 없으면 '없음'",
+      "",
+      "*확인 필요*",
+      "• 없으면 '없음'",
+      "",
+      "규칙:",
+      "- 기록에 없는 담당자, 기한, 사실은 만들지 마.",
+      "- 이미 완료된 일로 보이는 항목은 제외하거나 '완료 추정'으로 표시해.",
+      "- Slack mrkdwn으로 짧고 선명하게 써.",
+      "",
+      "회사 기록:",
+      context || "No records"
+    ].join("\n"),
+    [
+      "You are Jarvis, an internal action-item tracking assistant.",
+      "Extract only actionable work from Korean company records.",
+      "Do not invent facts.",
+      "Use concise Korean Slack mrkdwn."
     ].join("\n"),
     900,
     config
