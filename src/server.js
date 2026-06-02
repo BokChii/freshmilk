@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
+import path from "node:path";
 
 function loadEnvFile() {
   if (!existsSync(".env")) {
@@ -29,8 +30,9 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.2";
 const GITHUB_WEBHOOK_SECRET = process.env.GITHUB_WEBHOOK_SECRET || "";
 const SLACK_WEBHOOK_URL = process.env.SLACK_WEBHOOK_URL || "";
-const DATA_DIR = "data";
-const RECORDS_DIR = "records";
+const STORAGE_ROOT = process.env.STORAGE_ROOT || ".";
+const DATA_DIR = path.join(STORAGE_ROOT, "data");
+const RECORDS_DIR = path.join(STORAGE_ROOT, "records");
 
 function hasOpenAiApiKey() {
   return Boolean(
@@ -492,7 +494,8 @@ function readJsonlKnowledgeRecords() {
   const records = [];
   const files = [
     `${DATA_DIR}/records.jsonl`,
-    `${DATA_DIR}/daily-scrums.jsonl`
+    `${DATA_DIR}/daily-scrums.jsonl`,
+    `${DATA_DIR}/github-events.jsonl`
   ];
 
   for (const filePath of files) {
