@@ -16,7 +16,6 @@ import {
   readRawBody,
   saveDailyScrumToGitHub,
   saveDailySummaryToGitHub,
-  saveActionSummaryToGitHub,
   saveRecordToGitHub,
   splitRecordTitleAndBody,
   structureRecordWithAi,
@@ -246,16 +245,12 @@ async function handleAction(payload, config) {
       "*참고 기록*",
       ...contextRecords.map((record) => `• ${record.filePath}`)
     ].join("\n");
-    const markdownPath = await saveActionSummaryToGitHub(query, actionText, contextRecords, config);
-
     await postSlackResponse(payload.response_url, {
       response_type: "in_channel",
       text: [
         query ? `*범위:* ${query}` : "*범위:* 전체 최신 기록",
         "",
         actionText,
-        "",
-        `저장 위치: ${markdownPath}`,
         "",
         "*참고 기록*",
         ...contextRecords.map((record) => `• ${record.filePath}`)

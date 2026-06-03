@@ -447,27 +447,6 @@ export async function saveDailySummaryToGitHub(records, summaryText, config = ge
   return putGitHubFile(`records/daily/${date}.md`, `${markdown}\n`, "write daily summary", config);
 }
 
-export async function saveActionSummaryToGitHub(query, actionText, contextRecords, config = getConfig()) {
-  const date = todayKstDateString();
-  const suffix = query ? `-${slugifyTitle(query)}` : "";
-  const markdownPath = `records/actions/${date}${suffix}.md`;
-  const markdown = [
-    `# Action Items - ${date}`,
-    "",
-    query ? `- Query: ${query}` : "- Query: all",
-    "",
-    "## Actions",
-    "",
-    actionText,
-    "",
-    "## Sources",
-    "",
-    ...contextRecords.map((record) => `- ${record.filePath}`)
-  ].join("\n");
-
-  return putGitHubFile(markdownPath, `${markdown}\n`, "write action summary", config);
-}
-
 export async function saveRecordToGitHub(payload, structuredText, config = getConfig()) {
   const { title, body } = splitRecordTitleAndBody(payload.text || "");
   const date = todayKstDateString();
