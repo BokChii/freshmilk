@@ -46,11 +46,14 @@ OPENAI_API_KEY=replace_with_openai_api_key
 OPENAI_MODEL=gpt-5.2
 GITHUB_WEBHOOK_SECRET=replace_with_github_webhook_secret
 SLACK_WEBHOOK_URL=replace_with_slack_incoming_webhook_url
+GITHUB_SLACK_WEBHOOK_URL=replace_with_github_channel_slack_incoming_webhook_url
 GITHUB_TOKEN=replace_with_github_token
 GITHUB_OWNER=BokChii
 GITHUB_REPO=freshmilk
 GITHUB_BRANCH=master
 ```
+
+`GITHUB_SLACK_WEBHOOK_URL`을 설정하면 GitHub push/PR 알림은 이 webhook으로 전송됩니다. 예를 들어 `#github` 채널용 Incoming Webhook URL을 넣으면 개발 이벤트만 `#github`에 올라갑니다. 값이 없으면 기존 `SLACK_WEBHOOK_URL`을 사용합니다.
 
 ## Slack Commands
 

@@ -22,6 +22,7 @@ OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5.2
 GITHUB_WEBHOOK_SECRET=...
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+GITHUB_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 GITHUB_TOKEN=...
 GITHUB_OWNER=BokChii
 GITHUB_REPO=freshmilk
@@ -39,6 +40,8 @@ Contents: Read and write
 ```
 
 Use this token as `GITHUB_TOKEN`.
+
+`GITHUB_SLACK_WEBHOOK_URL` should be the Incoming Webhook URL for the Slack `#github` channel. If it is not set, Jarvis falls back to `SLACK_WEBHOOK_URL`.
 
 ## Slack Slash Commands
 

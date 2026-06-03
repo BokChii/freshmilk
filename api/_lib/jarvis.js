@@ -8,7 +8,7 @@ export function getConfig() {
     openaiApiKey: process.env.OPENAI_API_KEY || "",
     openaiModel: process.env.OPENAI_MODEL || "gpt-5.2",
     githubWebhookSecret: process.env.GITHUB_WEBHOOK_SECRET || "",
-    slackWebhookUrl: process.env.SLACK_WEBHOOK_URL || "",
+    slackWebhookUrl: process.env.GITHUB_SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL || "",
     githubToken: process.env.GITHUB_TOKEN || "",
     githubOwner: process.env.GITHUB_OWNER || "BokChii",
     githubRepo: process.env.GITHUB_REPO || "freshmilk",
