@@ -27,6 +27,9 @@ GITHUB_TOKEN=...
 GITHUB_OWNER=BokChii
 GITHUB_REPO=freshmilk
 GITHUB_BRANCH=master
+CHANNEL_DAILY=daily-scrum
+CHANNEL_RECORDS=meetings,customer
+CHANNEL_AI=ai-agent
 ```
 
 ## GitHub Token
@@ -42,6 +45,8 @@ Contents: Read and write
 Use this token as `GITHUB_TOKEN`.
 
 `GITHUB_SLACK_WEBHOOK_URL` should be the Incoming Webhook URL for the Slack `#github` channel. If it is not set, Jarvis falls back to `SLACK_WEBHOOK_URL`.
+
+Channel guardrails are advisory. Jarvis still processes commands, but adds a short note when a command is used outside its recommended channel.
 
 ## Slack Slash Commands
 

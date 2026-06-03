@@ -12,8 +12,72 @@ export function getConfig() {
     githubToken: process.env.GITHUB_TOKEN || "",
     githubOwner: process.env.GITHUB_OWNER || "BokChii",
     githubRepo: process.env.GITHUB_REPO || "freshmilk",
-    githubBranch: process.env.GITHUB_BRANCH || "master"
+    githubBranch: process.env.GITHUB_BRANCH || "master",
+    dailyChannel: process.env.CHANNEL_DAILY || "daily-scrum",
+    recordChannels: parseChannelList(process.env.CHANNEL_RECORDS || "meetings,customer"),
+    aiChannel: process.env.CHANNEL_AI || "ai-agent"
   };
+}
+
+function parseChannelList(value) {
+  return value
+    .split(",")
+    .map((channel) => normalizeChannelName(channel))
+    .filter(Boolean);
+}
+
+function normalizeChannelName(channelName) {
+  return String(channelName || "")
+    .trim()
+    .replace(/^#/, "")
+    .toLowerCase();
+}
+
+export function getChannelGuidance(command, payload, config = getConfig()) {
+  const currentChannel = normalizeChannelName(payload.channel_name);
+
+  if (!currentChannel) {
+    return "";
+  }
+
+  if (command === "/daily" || command === "/daily-summary") {
+    const expected = normalizeChannelName(config.dailyChannel);
+
+    if (expected && currentChannel !== expected) {
+      return `참고: ${command}${topicParticle(command)} #${expected} 채널에서 사용하는 것을 권장합니다. 이번 요청은 그대로 처리했습니다.`;
+    }
+  }
+
+  if (command === "/record") {
+    const expectedChannels = config.recordChannels || [];
+
+    if (expectedChannels.length && !expectedChannels.includes(currentChannel)) {
+      return `참고: /record는 ${expectedChannels.map((channel) => `#${channel}`).join(", ")} 채널에서 사용하는 것을 권장합니다. 이번 기록은 그대로 저장했습니다.`;
+    }
+  }
+
+  if (command === "/ask" || command === "/action") {
+    const allowedChannels = [
+      normalizeChannelName(config.aiChannel),
+      normalizeChannelName(config.dailyChannel),
+      ...(config.recordChannels || [])
+    ].filter(Boolean);
+
+    if (allowedChannels.length && !allowedChannels.includes(currentChannel)) {
+      return `참고: ${command}${topicParticle(command)} ${allowedChannels.map((channel) => `#${channel}`).join(", ")} 채널에서 사용하는 것을 권장합니다. 이번 요청은 그대로 처리했습니다.`;
+    }
+  }
+
+  return "";
+}
+
+function topicParticle(command) {
+  return command === "/action" ? "은" : "는";
+}
+
+export function withChannelGuidance(text, command, payload, config = getConfig()) {
+  const guidance = getChannelGuidance(command, payload, config);
+  return guidance ? [guidance, "", text].join("\n") : text;
 }
 
 export async function readRawBody(req) {

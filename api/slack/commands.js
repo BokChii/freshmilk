@@ -20,7 +20,8 @@ import {
   splitRecordTitleAndBody,
   structureRecordWithAi,
   summarizeDailyWithAi,
-  verifySlackRequest
+  verifySlackRequest,
+  withChannelGuidance
 } from "../_lib/jarvis.js";
 
 export const config = {
@@ -54,7 +55,12 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       response_type: hasText ? "in_channel" : "ephemeral",
-      text: formatDailyResponse(payload.text || "", payload.user_name || "")
+      text: withChannelGuidance(
+        formatDailyResponse(payload.text || "", payload.user_name || ""),
+        payload.command,
+        payload,
+        appConfig
+      )
     });
     return;
   }
@@ -62,7 +68,12 @@ export default async function handler(req, res) {
   if (payload.command === "/daily-summary") {
     res.status(200).json({
       response_type: "ephemeral",
-      text: "오늘의 데일리 스크럼을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요."
+      text: withChannelGuidance(
+        "오늘의 데일리 스크럼을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요.",
+        payload.command,
+        payload,
+        appConfig
+      )
     });
     waitUntil(handleDailySummary(payload, appConfig));
     return;
@@ -71,7 +82,12 @@ export default async function handler(req, res) {
   if (payload.command === "/record") {
     res.status(200).json({
       response_type: "ephemeral",
-      text: "기록을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요."
+      text: withChannelGuidance(
+        "기록을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요.",
+        payload.command,
+        payload,
+        appConfig
+      )
     });
     waitUntil(handleRecord(payload, appConfig));
     return;
@@ -80,7 +96,12 @@ export default async function handler(req, res) {
   if (payload.command === "/ask") {
     res.status(200).json({
       response_type: "ephemeral",
-      text: "저장된 기록을 검색하고 있습니다. 완료되면 채널에 공개로 올릴게요."
+      text: withChannelGuidance(
+        "저장된 기록을 검색하고 있습니다. 완료되면 채널에 공개로 올릴게요.",
+        payload.command,
+        payload,
+        appConfig
+      )
     });
     waitUntil(handleAsk(payload, appConfig));
     return;
@@ -89,7 +110,12 @@ export default async function handler(req, res) {
   if (payload.command === "/action") {
     res.status(200).json({
       response_type: "ephemeral",
-      text: "저장된 기록에서 액션 아이템을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요."
+      text: withChannelGuidance(
+        "저장된 기록에서 액션 아이템을 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요.",
+        payload.command,
+        payload,
+        appConfig
+      )
     });
     waitUntil(handleAction(payload, appConfig));
     return;

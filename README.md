@@ -51,9 +51,20 @@ GITHUB_TOKEN=replace_with_github_token
 GITHUB_OWNER=BokChii
 GITHUB_REPO=freshmilk
 GITHUB_BRANCH=master
+CHANNEL_DAILY=daily-scrum
+CHANNEL_RECORDS=meetings,customer
+CHANNEL_AI=ai-agent
 ```
 
 `GITHUB_SLACK_WEBHOOK_URL`을 설정하면 GitHub push/PR 알림은 이 webhook으로 전송됩니다. 예를 들어 `#github` 채널용 Incoming Webhook URL을 넣으면 개발 이벤트만 `#github`에 올라갑니다. 값이 없으면 기존 `SLACK_WEBHOOK_URL`을 사용합니다.
+
+채널 가드레일은 강제 차단이 아니라 안내입니다. 권장 채널이 아닌 곳에서 명령어를 실행하면 안내 문구를 붙이고 요청은 그대로 처리합니다.
+
+```text
+CHANNEL_DAILY=daily-scrum
+CHANNEL_RECORDS=meetings,customer
+CHANNEL_AI=ai-agent
+```
 
 ## Slack Commands
 
