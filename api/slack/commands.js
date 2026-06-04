@@ -3,23 +3,29 @@ import {
   answerAskWithAi,
   extractActionsWithAi,
   formatBasicDailySummary,
+  formatBasicWeeklySummary,
   formatDailyMemberUpdates,
   formatGitHubEventsForDaily,
   formatDailyResponse,
   getConfig,
   isSameKstDate,
+  isSameKstWeek,
+  currentKstWeekKey,
   parseFormBody,
   postSlackResponse,
   readDailyScrumsFromGitHub,
   readGitHubEventsFromGitHub,
   readGitHubKnowledge,
+  readRecordsFromGitHub,
   readRawBody,
   saveDailyScrumToGitHub,
   saveDailySummaryToGitHub,
+  saveWeeklySummaryToGitHub,
   saveRecordToGitHub,
   splitRecordTitleAndBody,
   structureRecordWithAi,
   summarizeDailyWithAi,
+  summarizeWeeklyWithAi,
   verifySlackRequest,
   withChannelGuidance
 } from "../_lib/jarvis.js";
@@ -118,6 +124,20 @@ export default async function handler(req, res) {
       )
     });
     waitUntil(handleAction(payload, appConfig));
+    return;
+  }
+
+  if (payload.command === "/weekly") {
+    res.status(200).json({
+      response_type: "ephemeral",
+      text: withChannelGuidance(
+        "이번 주 운영 리포트를 정리하고 있습니다. 완료되면 채널에 공개로 올릴게요.",
+        payload.command,
+        payload,
+        appConfig
+      )
+    });
+    waitUntil(handleWeekly(payload, appConfig));
     return;
   }
 
@@ -287,6 +307,46 @@ async function handleAction(payload, config) {
     await postSlackResponse(payload.response_url, {
       response_type: "ephemeral",
       text: "액션 아이템 정리 중 오류가 발생했습니다. Vercel 로그를 확인해주세요."
+    });
+  }
+}
+
+async function handleWeekly(payload, config) {
+  try {
+    const weekKey = currentKstWeekKey();
+    const dailyRecords = (await readDailyScrumsFromGitHub(config)).filter((record) =>
+      isSameKstWeek(record.created_at)
+    );
+    const recordRecords = (await readRecordsFromGitHub(config)).filter((record) =>
+      isSameKstWeek(record.created_at)
+    );
+    const githubEvents = (await readGitHubEventsFromGitHub(config)).filter((record) =>
+      isSameKstWeek(record.created_at)
+    );
+    const sources = { weekKey, dailyRecords, recordRecords, githubEvents };
+
+    if (!dailyRecords.length && !recordRecords.length && !githubEvents.length) {
+      await postSlackResponse(payload.response_url, {
+        response_type: "ephemeral",
+        text: "이번 주에 저장된 기록이 아직 없습니다. /daily, /record, GitHub webhook 기록이 쌓이면 주간 리포트를 만들 수 있습니다."
+      });
+      return;
+    }
+
+    const aiSummary = await summarizeWeeklyWithAi(sources, config);
+    let text = aiSummary || formatBasicWeeklySummary(sources);
+    const markdownPath = await saveWeeklySummaryToGitHub(weekKey, text, sources, config);
+    text = [text, "", `저장 위치: ${markdownPath}`].join("\n");
+
+    await postSlackResponse(payload.response_url, {
+      response_type: "in_channel",
+      text
+    });
+  } catch (error) {
+    console.error(error);
+    await postSlackResponse(payload.response_url, {
+      response_type: "ephemeral",
+      text: "주간 리포트 정리 중 오류가 발생했습니다. Vercel 로그를 확인해주세요."
     });
   }
 }

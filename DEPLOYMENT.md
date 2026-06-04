@@ -64,6 +64,7 @@ Commands:
 /record
 /ask
 /action
+/weekly
 ```
 
 ## GitHub Webhook

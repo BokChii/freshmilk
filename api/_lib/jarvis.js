@@ -56,7 +56,7 @@ export function getChannelGuidance(command, payload, config = getConfig()) {
     }
   }
 
-  if (command === "/ask" || command === "/action") {
+  if (command === "/ask" || command === "/action" || command === "/weekly") {
     const allowedChannels = [
       normalizeChannelName(config.aiChannel),
       normalizeChannelName(config.dailyChannel),
@@ -164,6 +164,47 @@ export function todayKstDateString() {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date());
+}
+
+function kstDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    year: Number(values.year),
+    month: Number(values.month),
+    day: Number(values.day)
+  };
+}
+
+function kstMidnightUtc(date = new Date()) {
+  const { year, month, day } = kstDateParts(date);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+export function currentKstWeekKey(reference = new Date()) {
+  const dayStart = kstMidnightUtc(reference);
+  const dayOfWeek = dayStart.getUTCDay() || 7;
+  const thursday = new Date(dayStart);
+  thursday.setUTCDate(dayStart.getUTCDate() + 4 - dayOfWeek);
+
+  const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+  const week = Math.ceil((((thursday - yearStart) / 86400000) + 1) / 7);
+
+  return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+export function isSameKstWeek(isoDate, reference = new Date()) {
+  if (!isoDate) {
+    return false;
+  }
+
+  return currentKstWeekKey(new Date(isoDate)) === currentKstWeekKey(reference);
 }
 
 export function slugifyTitle(title) {
@@ -281,6 +322,40 @@ export function formatBasicDailySummary(records) {
     `*오늘의 데일리 스크럼 요약* (${records.length}건)`,
     "",
     formatDailyMemberUpdates(records)
+  ].join("\n");
+}
+
+export function formatBasicWeeklySummary({ weekKey, dailyRecords, recordRecords, githubEvents }) {
+  const dailyLines = dailyRecords.map((record) =>
+    `• ${record.user_name || record.user_id || "unknown"}: ${record.text || "내용 없음"}`
+  );
+  const recordLines = recordRecords.map((record) =>
+    `• ${record.title || "기록"}: ${record.text || record.markdown_path || "내용 없음"}`
+  );
+  const githubLines = githubEvents.map((event) =>
+    `• ${event.event || "github"}: ${event.repo || event.repository || event.markdown_path || "내용 없음"}`
+  );
+
+  return [
+    `*주간 리포트 (${weekKey})*`,
+    "",
+    "*진행한 일*",
+    dailyLines.length ? dailyLines.join("\n") : "• 데일리 스크럼 기록 없음",
+    "",
+    "*GitHub 작업*",
+    githubLines.length ? githubLines.join("\n") : "• GitHub 이벤트 기록 없음",
+    "",
+    "*주요 결정/기록*",
+    recordLines.length ? recordLines.join("\n") : "• 회의/업무 기록 없음",
+    "",
+    "*액션 아이템*",
+    "• 기록 기반으로 추가 확인 필요",
+    "",
+    "*막힌 것/리스크*",
+    "• 기록 기반으로 추가 확인 필요",
+    "",
+    "*다음 주 제안*",
+    "• 이번 주 기록을 기준으로 우선순위를 정리하세요."
   ].join("\n");
 }
 
@@ -475,6 +550,19 @@ export async function readGitHubEventsFromGitHub(config = getConfig()) {
     .map((line) => JSON.parse(line));
 }
 
+export async function readRecordsFromGitHub(config = getConfig()) {
+  const file = await getGitHubFile("data/records.jsonl", config);
+
+  if (!file?.content) {
+    return [];
+  }
+
+  return file.content
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
 export async function saveDailyScrumToGitHub(payload, config = getConfig()) {
   const record = {
     type: "daily_scrum",
@@ -509,6 +597,27 @@ export async function saveDailySummaryToGitHub(records, summaryText, config = ge
   ].join("\n");
 
   return putGitHubFile(`records/daily/${date}.md`, `${markdown}\n`, "write daily summary", config);
+}
+
+export async function saveWeeklySummaryToGitHub(weekKey, summaryText, sources, config = getConfig()) {
+  const sourceSummary = [
+    `- Daily scrums: ${sources.dailyRecords.length}`,
+    `- Records: ${sources.recordRecords.length}`,
+    `- GitHub events: ${sources.githubEvents.length}`
+  ].join("\n");
+  const markdown = [
+    `# Weekly Report - ${weekKey}`,
+    "",
+    "## Summary",
+    "",
+    summaryText,
+    "",
+    "## Source Counts",
+    "",
+    sourceSummary
+  ].join("\n");
+
+  return putGitHubFile(`records/weekly/${weekKey}.md`, `${markdown}\n`, "write weekly summary", config);
 }
 
 export async function saveRecordToGitHub(payload, structuredText, config = getConfig()) {
@@ -803,6 +912,65 @@ export async function summarizeDailyWithAi(records, config = getConfig()) {
       "Do not invent facts that are not in the records."
     ].join("\n"),
     700,
+    config
+  );
+}
+
+export async function summarizeWeeklyWithAi({ weekKey, dailyRecords, recordRecords, githubEvents }, config = getConfig()) {
+  const dailyInput = dailyRecords.map((record) =>
+    `- ${record.created_at} / ${record.user_name || record.user_id || "unknown"}: ${record.text}`
+  ).join("\n");
+  const recordInput = recordRecords.map((record) =>
+    `- ${record.created_at} / ${record.title || "기록"} / ${record.user_name || record.user_id || "unknown"}: ${record.text || record.markdown_path || ""}`
+  ).join("\n");
+  const githubInput = githubEvents.map((event) =>
+    `- ${event.created_at} / ${event.event || "github"} / ${event.repo || event.repository || ""}: ${event.summary || event.markdown_path || ""}`
+  ).join("\n");
+  const input = [
+    `주간 범위: ${weekKey}`,
+    "",
+    "아래 회사 운영 기록을 한국어 Slack mrkdwn 형식의 주간 리포트로 정리해줘.",
+    "중복 기록은 합치고, 사실 기반으로만 작성해줘.",
+    "",
+    "출력 형식:",
+    `*주간 리포트 (${weekKey})*`,
+    "",
+    "*진행한 일*",
+    "• ...",
+    "",
+    "*GitHub 작업*",
+    "• ...",
+    "",
+    "*주요 결정/기록*",
+    "• ...",
+    "",
+    "*액션 아이템*",
+    "• 담당자: ...",
+    "",
+    "*막힌 것/리스크*",
+    "• 없으면 '없음'",
+    "",
+    "*다음 주 제안*",
+    "• ...",
+    "",
+    "데일리 스크럼:",
+    dailyInput || "- 없음",
+    "",
+    "회의/업무 기록:",
+    recordInput || "- 없음",
+    "",
+    "GitHub 이벤트:",
+    githubInput || "- 없음"
+  ].join("\n");
+
+  return callOpenAi(
+    input,
+    [
+      "You are Jarvis, an internal company operations assistant.",
+      "Create concise weekly operating reports for a Slack channel.",
+      "Group similar work, highlight decisions and action items, and do not invent facts."
+    ].join("\n"),
+    1000,
     config
   );
 }

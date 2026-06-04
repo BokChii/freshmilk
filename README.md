@@ -9,6 +9,7 @@ Slack 중심으로 동작하는 사내 AI agent MVP입니다.
 - `/record`: 회의/고객사/업무 메모 구조화 저장
 - `/ask`: 저장된 기록에 질문
 - `/action`: 저장된 기록에서 액션 아이템 추출(저장하지 않음)
+- `/weekly`: 데일리/기록/GitHub 이벤트를 묶어 주간 리포트 생성
 - GitHub webhook: push/PR 이벤트 Slack 요약
 - `/daily-summary`: 오늘의 GitHub 작업도 함께 표시
 - GitHub-backed storage: 기록을 GitHub repo의 `data/`, `records/`에 저장
@@ -82,6 +83,7 @@ Commands:
 /record
 /ask
 /action
+/weekly
 ```
 
 Examples:
@@ -100,6 +102,12 @@ Examples:
 
 ```text
 /action 고객사 A
+```
+
+### Weekly report
+
+```text
+/weekly
 ```
 
 ## GitHub Webhook
